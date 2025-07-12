@@ -4,12 +4,12 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 
-# ==============================================================================
+
 # 1. ОСНОВНАЯ ФУНКЦИЯ ДЛЯ СОЗДАНИЯ ГРАФИКА
-# ==============================================================================
+
 def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_lines=20):
     fig = go.Figure()
-    r = 1.0  # Радиус Абсолюта
+    r = 1.0  # Радиус абсолюта
 
     # Словарь для перевода названий на русский
     bundle_titles = {
@@ -18,7 +18,7 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
         'hyperbolic': 'Гиперболический'
     }
 
-    # --- Отрисовка Абсолюта (граничного круга) ---
+    # Отрисовка абсолюта
     fig.add_shape(
         type="circle", xref="x", yref="y",
         x0=-r, y0=-r, x1=r, y1=r,
@@ -26,9 +26,8 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
         opacity=0.2, line_width=2
     )
     
-    # =================================================
-    # --- Эллиптический пучок (пересекающиеся) ---
-    # =================================================
+
+    # Эллиптический пучок (пересекающиеся) 
     if bundle_type == 'elliptic':
         center_point = np.array([p_x, p_y])
         if np.linalg.norm(center_point) >= r:
@@ -49,7 +48,7 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
             # Ортогональная кривая - гиперболическая окружность (в модели Клейна - эллипс)
             dist_center = np.linalg.norm(center_point)
             squash_factor = np.sqrt(max(1.0 - dist_center**2, 1e-9))
-            radius_euclidean = 0.4 # Зададим фиксированный радиус для примера
+            radius_euclidean = 0.4 # фиксированный радиус для примера
             
             radius_parallel = radius_euclidean * squash_factor
             radius_perp = radius_euclidean
@@ -64,9 +63,7 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
             fig.add_trace(go.Scatter(x=x_ellipse, y=y_ellipse, mode='lines', line=dict(color='blue', width=3, dash='solid'), name='Гиперб. окружность'))
 
 
-    # =================================================
-    # --- Параболический пучок (параллельные) ---
-    # =================================================
+    #Параболический пучок (параллельные)
     elif bundle_type == 'parabolic':
         angle_rad = np.deg2rad(p_angle)
         ideal_point = np.array([r * np.cos(angle_rad), r * np.sin(angle_rad)])
@@ -77,7 +74,7 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
         fig.add_trace(go.Scatter(x=[ideal_point[0]], y=[ideal_point[1]], mode='markers', marker=dict(color='black', size=8, symbol='diamond')))
         
         if show_curve:
-            # Ортогональная кривая - орицикл (в модели Клейна - окружность, касающаяся Абсолюта)
+            # Ортогональная кривая - орицикл (в модели Клейна - окружность, касающаяся абсолюта)
             r_horo = 0.5 # Фиксированный радиус для примера
             center_horo = ideal_point * (1 - r_horo / r)
             t = np.linspace(0, 2*np.pi, 100)
@@ -85,9 +82,7 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
             y_horo = center_horo[1] + r_horo * np.sin(t)
             fig.add_trace(go.Scatter(x=x_horo, y=y_horo, mode='lines', line=dict(color='blue', width=3), name='Орицикл'))
 
-    # =================================================
-    # --- Гиперболический пучок (расходящиеся) ---
-    # =================================================
+    # Гиперболический пучок (расходящиеся)
     elif bundle_type == 'hyperbolic':
         angle_rad = np.deg2rad(p_angle)
         midpoint = dist * np.array([np.cos(angle_rad), np.sin(angle_rad)])
@@ -120,14 +115,14 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
                     fig.add_trace(go.Scatter(x=[p_start[0], p_end[0]], y=[p_start[1], p_end[1]], mode='lines', line=dict(color='darkorange', width=1.5)))
         
         if show_curve:
-            # Ортогональная кривая - эквидистанта (в модели Клейна - дуга эллипса/гиперболы)
-            # Для простоты аппроксимируем дугой окружности, проходящей через те же точки
+            # Ортогональная кривая - эквидистанта
+            # Для простоты воспользуемся дугой окружности, проходящей через те же точки
             bulge = 0.3 # Фиксированный "изгиб" для примера
             center = midpoint + bulge * np.array([np.cos(angle_rad), np.sin(angle_rad)])
             radius = np.linalg.norm(p1 - center)
             start_angle = np.arctan2(p1[1]-center[1], p1[0]-center[0])
             end_angle = np.arctan2(p2[1]-center[1], p2[0]-center[0])
-            # Обеспечиваем правильное направление дуги
+            # правильное направление дуги
             if np.abs(start_angle - end_angle) > np.pi:
                 if start_angle < end_angle: start_angle += 2*np.pi
                 else: end_angle += 2*np.pi
@@ -147,9 +142,8 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
     )
     return fig
 
-# ==============================================================================
 # 2. СОЗДАНИЕ ПРИЛОЖЕНИЯ DASH
-# ==============================================================================
+
 app = dash.Dash(__name__)
 
 app.layout = html.Div(style={'fontFamily': 'Arial, sans-serif', 'width': '90%', 'margin': 'auto'}, children=[
@@ -188,9 +182,8 @@ app.layout = html.Div(style={'fontFamily': 'Arial, sans-serif', 'width': '90%', 
     ])
 ])
 
-# ==============================================================================
 # 3. ЛОГИКА ОБНОВЛЕНИЯ ГРАФИКА И ИНТЕРФЕЙСА
-# ==============================================================================
+# (чтобы "камера" не возвращалась в исходное положение при изменении картинки)
 @app.callback(
     Output('show-curve-store', 'data'),
     [Input('toggle-curve-button', 'n_clicks')],
@@ -221,8 +214,8 @@ def update_controls_visibility(bundle_type):
     elif bundle_type == 'hyperbolic': return {'display': 'none'}, {'display': 'none'}, {'display': 'block'}
     else: return {'display': 'block'}, {'display': 'none'}, {'display': 'none'}
 
-# ==============================================================================
+
 # 4. ЗАПУСК ПРИЛОЖЕНИЯ
-# ==============================================================================
+
 if __name__ == '__main__':
     app.run(debug=True)
