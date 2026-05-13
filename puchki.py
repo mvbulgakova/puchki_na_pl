@@ -25,9 +25,9 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
         line_color="RoyalBlue", fillcolor="LightSkyBlue",
         opacity=0.2, line_width=2
     )
-    
 
-    # Эллиптический пучок (пересекающиеся) 
+
+    # Эллиптический пучок (пересекающиеся)
     if bundle_type == 'elliptic':
         center_point = np.array([p_x, p_y])
         if np.linalg.norm(center_point) >= r:
@@ -49,14 +49,17 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
             dist_center = np.linalg.norm(center_point)
             squash_factor = np.sqrt(max(1.0 - dist_center**2, 1e-9))
             radius_euclidean = 0.4 # фиксированный радиус для примера
-            
-            radius_parallel = radius_euclidean * squash_factor
-            radius_perp = radius_euclidean
+
+            # В метрике Клейна радиальное направление сжато сильнее:
+            # g_rr = 1/(1-d²)², поэтому радиальная полуось меньше перпендикулярной
+            radius_parallel = radius_euclidean * squash_factor  # радиальная (сжатая)
+            radius_perp = radius_euclidean                       # перпендикулярная (несжатая)
 
             t = np.linspace(0, 2*np.pi, 100)
-            x_ellipse_std = radius_perp * np.cos(t)
-            y_ellipse_std = radius_parallel * np.sin(t)
-            
+            # После поворота на angle_center: x_std → радиальное, y_std → перпендикулярное
+            x_ellipse_std = radius_parallel * np.cos(t)
+            y_ellipse_std = radius_perp * np.sin(t)
+
             angle_center = np.arctan2(center_point[1], center_point[0])
             x_ellipse = x_ellipse_std*np.cos(angle_center) - y_ellipse_std*np.sin(angle_center) + center_point[0]
             y_ellipse = x_ellipse_std*np.sin(angle_center) + y_ellipse_std*np.cos(angle_center) + center_point[1]
@@ -72,7 +75,7 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
             end_point = np.array([r * np.cos(end_angle), r * np.sin(end_angle)])
             fig.add_trace(go.Scatter(x=[ideal_point[0], end_point[0]], y=[ideal_point[1], end_point[1]], mode='lines', line=dict(color='seagreen', width=1.5)))
         fig.add_trace(go.Scatter(x=[ideal_point[0]], y=[ideal_point[1]], mode='markers', marker=dict(color='black', size=8, symbol='diamond')))
-        
+
         if show_curve:
             # Ортогональная кривая - орицикл (в модели Клейна - окружность, касающаяся абсолюта)
             r_horo = 0.5 # Фиксированный радиус для примера
@@ -113,7 +116,7 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
                     t1,t2 = (-b+np.sqrt(discriminant))/(2*a), (-b-np.sqrt(discriminant))/(2*a)
                     p_start, p_end = pole+t1*line_dir, pole+t2*line_dir
                     fig.add_trace(go.Scatter(x=[p_start[0], p_end[0]], y=[p_start[1], p_end[1]], mode='lines', line=dict(color='darkorange', width=1.5)))
-        
+
         if show_curve:
             # Ортогональная кривая - эквидистанта
             # Для простоты воспользуемся дугой окружности, проходящей через те же точки
@@ -126,7 +129,7 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
             if np.abs(start_angle - end_angle) > np.pi:
                 if start_angle < end_angle: start_angle += 2*np.pi
                 else: end_angle += 2*np.pi
-            
+
             t = np.linspace(start_angle, end_angle, 100)
             x_arc, y_arc = center[0] + radius*np.cos(t), center[1] + radius*np.sin(t)
             fig.add_trace(go.Scatter(x=x_arc, y=y_arc, mode='lines', line=dict(color='blue', width=3), name='Эквидистанта'))
