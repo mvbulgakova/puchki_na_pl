@@ -45,18 +45,20 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
         fig.add_trace(go.Scatter(x=[center_point[0]], y=[center_point[1]], mode='markers', marker=dict(color='black', size=8, symbol='circle')))
 
         if show_curve:
-            # Ортогональная кривая - гиперболическая окружность (в модели Клейна - эллипс)
+            # Ортогональная траектория — гиперболическая окружность (эллипс в Клейне).
+            # По метрике Клейна в точке на расстоянии d от центра абсолюта
+            # радиальная полуось эллипса сжата множителем sqrt(1-d^2)
+            # относительно трансверсальной (из ds^2 = dx^2/(1-d^2)^2 + dy^2/(1-d^2)).
             dist_center = np.linalg.norm(center_point)
             squash_factor = np.sqrt(max(1.0 - dist_center**2, 1e-9))
-            radius_euclidean = 0.4 # фиксированный радиус для примера
-            
-            radius_parallel = radius_euclidean * squash_factor
-            radius_perp = radius_euclidean
+            radius_transverse = 0.4  # фиксированный масштаб для иллюстрации
+            radius_radial = radius_transverse * squash_factor
 
             t = np.linspace(0, 2*np.pi, 100)
-            x_ellipse_std = radius_perp * np.cos(t)
-            y_ellipse_std = radius_parallel * np.sin(t)
-            
+            # До поворота: ось X станет радиальной, ось Y — трансверсальной.
+            x_ellipse_std = radius_radial * np.cos(t)
+            y_ellipse_std = radius_transverse * np.sin(t)
+
             angle_center = np.arctan2(center_point[1], center_point[0])
             x_ellipse = x_ellipse_std*np.cos(angle_center) - y_ellipse_std*np.sin(angle_center) + center_point[0]
             y_ellipse = x_ellipse_std*np.sin(angle_center) + y_ellipse_std*np.cos(angle_center) + center_point[1]
@@ -74,12 +76,19 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
         fig.add_trace(go.Scatter(x=[ideal_point[0]], y=[ideal_point[1]], mode='markers', marker=dict(color='black', size=8, symbol='diamond')))
         
         if show_curve:
-            # Ортогональная кривая - орицикл (в модели Клейна - окружность, касающаяся абсолюта)
-            r_horo = 0.5 # Фиксированный радиус для примера
-            center_horo = ideal_point * (1 - r_horo / r)
+            # Ортогональная траектория — орицикл. В модели Клейна-Бельтрами
+            # это эллипс, касающийся абсолюта в идеальной точке (в Пуанкаре —
+            # евклидова окружность). Параметр k' задаёт размер орицикла.
+            k_prime = 1.0
+            center_horo = ideal_point * (1.0 / (1.0 + k_prime))
+            radius_parallel_h = k_prime / (1.0 + k_prime)              # вдоль ideal_point
+            radius_perp_h = np.sqrt(k_prime) / np.sqrt(1.0 + k_prime)  # поперёк
+
             t = np.linspace(0, 2*np.pi, 100)
-            x_horo = center_horo[0] + r_horo * np.cos(t)
-            y_horo = center_horo[1] + r_horo * np.sin(t)
+            x_std = radius_parallel_h * np.cos(t)
+            y_std = radius_perp_h * np.sin(t)
+            x_horo = x_std*np.cos(angle_rad) - y_std*np.sin(angle_rad) + center_horo[0]
+            y_horo = x_std*np.sin(angle_rad) + y_std*np.cos(angle_rad) + center_horo[1]
             fig.add_trace(go.Scatter(x=x_horo, y=y_horo, mode='lines', line=dict(color='blue', width=3), name='Орицикл'))
 
     # Гиперболический пучок (расходящиеся)
@@ -115,26 +124,30 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
                     fig.add_trace(go.Scatter(x=[p_start[0], p_end[0]], y=[p_start[1], p_end[1]], mode='lines', line=dict(color='darkorange', width=1.5)))
         
         if show_curve:
-            # Ортогональная кривая - эквидистанта
-            # Для простоты воспользуемся дугой окружности, проходящей через те же точки
-            bulge = 0.3 # Фиксированный "изгиб" для примера
-            center = midpoint + bulge * np.array([np.cos(angle_rad), np.sin(angle_rad)])
-            radius = np.linalg.norm(p1 - center)
-            start_angle = np.arctan2(p1[1]-center[1], p1[0]-center[0])
-            end_angle = np.arctan2(p2[1]-center[1], p2[0]-center[0])
-            # правильное направление дуги
-            if np.abs(start_angle - end_angle) > np.pi:
-                if start_angle < end_angle: start_angle += 2*np.pi
-                else: end_angle += 2*np.pi
-            
-            t = np.linspace(start_angle, end_angle, 100)
-            x_arc, y_arc = center[0] + radius*np.cos(t), center[1] + radius*np.sin(t)
-            fig.add_trace(go.Scatter(x=x_arc, y=y_arc, mode='lines', line=dict(color='blue', width=3), name='Эквидистанта'))
+            # Ортогональная траектория — эквидистанта. В модели Клейна‐Бельтрами это
+            # дуга эллипса, проходящего через идеальные точки оси (а не дуга окружности).
+            # Строим из стандартного эллипса X^2/tanh^2(d) + Y^2 = 1 (для оси по y),
+            # применяя гиперболический сдвиг Клейна на dist вдоль x и поворот на angle_rad.
+            hyp_distance = 0.7  # гиперболическое расстояние от оси (для иллюстрации)
+            th_d = np.tanh(hyp_distance)
+
+            s = np.linspace(-np.pi/2, np.pi/2, 100)
+            X_local = th_d * np.cos(s)
+            Y_local = np.sin(s)
+
+            t_klein = dist
+            denom = 1.0 + t_klein * X_local
+            X_rot = (X_local + t_klein) / denom
+            Y_rot = Y_local * np.sqrt(max(1.0 - t_klein**2, 0.0)) / denom
+
+            x_eq = X_rot * np.cos(angle_rad) - Y_rot * np.sin(angle_rad)
+            y_eq = X_rot * np.sin(angle_rad) + Y_rot * np.cos(angle_rad)
+            fig.add_trace(go.Scatter(x=x_eq, y=y_eq, mode='lines', line=dict(color='blue', width=3), name='Эквидистанта'))
 
 
     # Настройки вида
     fig.update_layout(
-        title=f'Модель Кэли-Клейна: {bundle_titles.get(bundle_type, "")} пучок',
+        title=f'Модель Клейна-Бельтрами: {bundle_titles.get(bundle_type, "")} пучок',
         xaxis=dict(range=[-1.1, 1.1], visible=False, scaleanchor="y", scaleratio=1),
         yaxis=dict(range=[-1.1, 1.1], visible=False),
         showlegend=False,
@@ -147,7 +160,7 @@ def create_bundle_figure(bundle_type, p_x, p_y, p_angle, dist, show_curve, num_l
 app = dash.Dash(__name__)
 
 app.layout = html.Div(style={'fontFamily': 'Arial, sans-serif', 'width': '90%', 'margin': 'auto'}, children=[
-    html.H1("Пучки прямых в модели Кэли-Клейна", style={'textAlign': 'center'}),
+    html.H1("Пучки прямых в модели Клейна-Бельтрами", style={'textAlign': 'center'}),
     html.Div(style={'display': 'flex', 'flexDirection': 'row'}, children=[
         html.Div(dcc.Graph(id='klein-bundle-graph'), style={'width': '60%'}),
         html.Div(style={'width': '35%', 'paddingLeft': '5%'}, children=[
